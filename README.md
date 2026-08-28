@@ -2,10 +2,7 @@
 
 # 🌍 OutlookAutomation
 
-### I'm a Color Pointer that helps to identify the keyboard input language.
-(English Lower, English Upper, Korean, Pali, Japanese)
-
-### 입력 모드에 따라 색상이 바뀌는 마우스 포인터 유틸리티
+### 지정 파일을 전용앱에서 열기 + Outlook에 첨부하기 + 지정 폴더에 새파일로 저장하기 + Zip 파일로 압축하기
 
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows11&logoColor=white)
 ![Framework](https://img.shields.io/badge/.NET-10.0--windows-512BD4?logo=dotnet&logoColor=white)
