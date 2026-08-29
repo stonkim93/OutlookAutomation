@@ -1,41 +1,191 @@
-<div align="center">
+# Outlook Automation App
 
-# 🌍 OutlookAutomation
+> Windows에서 파일을 Outlook에 첨부하여 저장하는 자동화 도구
 
-### 지정 파일을 전용앱에서 열기 + Outlook에 첨부하기 + 지정 폴더에 새파일로 저장하기 + Zip 파일로 압축하기
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?logo=windows11&logoColor=white)](https://www.microsoft.com/windows)
+[![Framework](https://img.shields.io/badge/.NET-8.0--windows-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com)
+[![Language](https://img.shields.io/badge/language-C%23-239120?logo=csharp&logoColor=white)](https://docs.microsoft.com/dotnet/csharp)
+[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows11&logoColor=white)
-![Framework](https://img.shields.io/badge/.NET-10.0--windows-512BD4?logo=dotnet&logoColor=white)
-![Language](https://img.shields.io/badge/language-C%23-239120?logo=csharp&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-yellow.svg)
-![Status](https://img.shields.io/badge/status-Production--Ready-2E8B57)
+## ✨ 주요 기능
 
-</div>
+- 📄 다양한 파일 형식 지원 (Excel, Word, PDF, 한글, 이미지 등)
+- 📧 Outlook 자동 연동 (Classic & New Outlook 모두 지원)
+- 💾 지정 폴더에 자동 저장
+- 📦 ZIP 압축 자동 생성
+- 🔄 실시간 진행 상황 표시
+- 🛡️ 자동 파일명 충돌 방지 (타임스탬프 추가)
 
-Outlook 파일 첨부 자동화 앱 (OutlookAutomationApp)OutlookAutomationApp은 문서 파일(Excel, Word, PowerPoint, PDF, HWP 등)을 전용 기본 프로그램으로 열고, Outlook에 첨부하여 메일을 작성한 후, 대상 폴더 저장 및 ZIP 압축까지 한 번에 자동화해 주는 Windows 데스크톱 애플리케이션입니다.  🌟 주요 기능다양한 파일 확장자 지원: Excel, Word, PowerPoint, PDF, 한글(HWP/HWPX), 이미지, 텍스트 등 모든 형식의 파일 처리.  하이브리드 Outlook 지원 (Classic & New Outlook):클래식 Outlook (Office 2007~365): COM Interop 자동화를 이용해 백그라운드 연동 및 메일 작성[cite: 37, 39, 40].새 Outlook (New Outlook / olk.exe): COM을 지원하지 않는 최신 웹 기반 Outlook 환경에서는 Simple MAPI 연동 및 안전한 직접 복사 방식(Fallback)으로 자동 전환.  자동 ZIP 압축 기능: 지정된 출력 폴더로 원본 파일 저장 후, 해당 위치에 최적 압축률의 .zip 압축 파일 자동 생성.  스레드 안전 UI 및 실시간 상태 로깅: Dispatcher.Invoke를 적용하여 5단계 자동화 진행 상황을 UI에 실시간으로 시각화.  프로세스 및 COM 리소스 안전 정리: 파일 잠금(Lock) 방지를 위한 적절한 대기 시간 설정과 완료 후 외부 앱 프로세스 및 COM 객체 메모리 해제 처리.  🔄 동작 프로세스[1단계: 파일 선택] ──> [2단계: 출력 폴더 선택] ──> [자동화 실행]
-                                                      │
- ┌────────────────────────────────────────────────────┘
- ├── 1. 지정 파일을 Windows 기본 앱으로 열기 (Excel, Word 등)[cite: 38, 39, 40]
- ├── 2. Outlook 실행 환경 및 버전 감지 (Classic COM vs New Outlook)
- ├── 3. 임시 메일 작성 및 파일 첨부 (COM 또는 Simple MAPI 호출)
- ├── 4. 작성된 메일 창 표시
- └── 5. 지정 폴더에 첨부 파일 저장 후 ZIP 압축 파일 자동 생성
-🛠️ 기술 스택 및 개발 환경구분내용Framework.NET 8.0-windows[cite: 41]UI TechnologyWPF (Windows Presentation Foundation) & WinForms (폴더 선택)[cite: 38, 41]LanguageC# (Latest)[cite: 41]Architecturex64[cite: 41]InteroperabilityWindows COM Interop (Outlook.Application), Simple MAPI (MAPI32.DLL)[cite: 39, 40]CompressionSystem.IO.Compression (ZipArchive)[cite: 39]📂 프로젝트 구조OutlookAutomationApp/
-├── App.xaml / App.xaml.cs          # 애플리케이션 진입점 및 공통 네임스페이스 정의
-├── MainWindow.xaml                 # 메인 GUI 레이아웃 (WPF)[cite: 38]
-├── MainWindow.xaml.cs              # UI 이벤트 핸들러 & OutlookAutomationService[cite: 39]
-└── OutlookAutomationApp.csproj    # .NET 8.0 빌드 및 플랫폼 설정 파일[cite: 41]
-🚀 시작하기요구 사항OS: Windows 10 / 11 (x64)[cite: 40, 41]개발 환경: Visual Studio 2022 (v17.8 이상) 또는 .NET 8.0 SDK[cite: 40, 41]메일 클라이언트: Microsoft Outlook (클래식 데스크톱 앱 또는 새 Outlook/New Outlook)[cite: 39, 40]빌드 및 실행저장소 클론:Bashgit clone https://github.com/your-username/OutlookAutomationApp.git
+## 🚀 빠른 시작
+
+### 요구사항
+
+- Windows 10 / 11 (x64)
+- Microsoft Outlook (Classic 또는 New Outlook)
+- .NET 8.0 이상
+
+### 설치 및 실행
+
+```bash
+# 저장소 복제
+git clone https://github.com/your-username/OutlookAutomationApp.git
 cd OutlookAutomationApp
-프로젝트 빌드:Bashdotnet build --configuration Release
-앱 실행:Bashdotnet run
-💡 예외 처리 및 트러블슈팅파일명 중복 발생 시: 출력 폴더에 동일한 파일이 이미존재하는 경우, 타임스탬프(_yyyyMMdd_HHmmss)를 자동으로 부여하여 덮어쓰기 손실을 방지합니다.  새 Outlook(New Outlook) 호환 문제: 외부 COM 자동화가 차단된 최신 웹 기반 Outlook 실행 환경에서도 Simple MAPI 호출 및 원본 파일 복사 방식을 통해 정상 작동을 보장합니다[cite: 39].파일 점유(Lock) 오류 방지: 외부 프로그램(Excel, PowerPoint 등)이 문서를 열 때 발생하는 잠금 현상을 방지하기 위해 각 단계 간 비동기 대기 시간을 포함시켰습니다[cite: 37, 39].
 
+# 빌드
+dotnet build --configuration Release
 
-## 📜 라이선스 (License)
+# 실행
+dotnet run
+```
 
-- 이 프로젝트는 **MIT License**에 따라 자유롭게 수정 및 배포할 수 있습니다.
+또는 Release 폴더에서 `.exe` 파일을 직접 실행합니다.
 
-<br>
+## 📖 사용 방법
 
-❤️🌍✨⚡🚀💡🎯🆕🖥️💻⌨️🔤🎨🧩🐛🔹📐📝✅🏆ℹ️❓
+### 1단계: 파일 선택
+"파일 선택" 버튼을 클릭하여 첨부할 파일을 선택합니다.
+
+### 2단계: 폴더 선택
+"폴더 선택" 버튼을 클릭하여 저장할 출력 폴더를 지정합니다.
+
+### 3단계: 자동화 실행
+"자동화 실행" 버튼을 클릭하면:
+
+1. ✅ 파일을 기본 앱으로 엽니다 (Excel, Word 등)
+2. ✅ Outlook을 실행합니다
+3. ✅ 임시 메일에 파일을 첨부합니다
+4. ✅ 메일 창을 표시합니다
+5. ✅ 첨부 파일을 출력 폴더에 저장하고 ZIP으로 압축합니다
+
+## 🏗️ 프로젝트 구조
+
+```
+OutlookAutomationApp/
+├── App.xaml
+├── App.xaml.cs
+├── MainWindow.xaml           # UI 레이아웃
+├── MainWindow.xaml.cs        # 로직 및 이벤트 처리
+├── OutlookAutomation.csproj  # 프로젝트 설정
+└── README.md
+```
+
+## 🛠️ 기술 스택
+
+| 항목 | 내용 |
+|------|------|
+| **Framework** | .NET 8.0-windows |
+| **UI** | WPF (Windows Presentation Foundation) |
+| **Language** | C# |
+| **Architecture** | x64 |
+| **Interop** | COM (Outlook.Application), MAPI (outlook.exe) |
+
+## 🔧 기술 상세
+
+### Outlook 호환성
+
+```
+✓ Classic Outlook (Office 2007-365)
+  → COM Interop로 백그라운드 자동화
+
+✓ New Outlook (웹 기반)
+  → MAPI 연동 및 파일 복사 방식 사용
+```
+
+### 자동 파일명 충돌 방지
+
+```
+원본: report.xlsx
+저장: report_20240115_143025.xlsx (타임스탬프 자동 추가)
+```
+
+### 리소스 관리
+
+- 파일 잠금 방지를 위한 적절한 대기 시간 설정
+- 완료 후 COM 객체 및 프로세스 안전 정리
+- 메모리 누수 방지
+
+## 📋 시스템 요구사항
+
+- **OS**: Windows 10 (21H2) 이상 또는 Windows 11
+- **Outlook**: 2016 이상 (Classic) 또는 New Outlook
+- **RAM**: 최소 2GB
+- **Disk**: 최소 50MB 여유 공간
+
+## ⚙️ 개발 환경 설정
+
+### Visual Studio 2022
+
+1. Visual Studio 2022 Community 설치
+2. ".NET 데스크톱 개발" 워크로드 선택
+3. 프로젝트 열기 및 `F5` 키로 실행
+
+### .NET CLI
+
+```bash
+# .NET 8.0 SDK 설치 확인
+dotnet --version
+
+# 프로젝트 빌드
+dotnet build
+
+# 실행
+dotnet run
+
+# Release 빌드
+dotnet publish -c Release -o ./publish
+```
+
+## 🐛 문제 해결
+
+### "Outlook을 찾을 수 없음" 오류
+
+Outlook이 설치되어 있지 않거나 실행되지 않은 경우입니다.
+→ Microsoft Outlook을 설치하거나 실행 후 다시 시도하세요.
+
+### "파일이 잠겨있음" 오류
+
+Excel이나 Word 등의 앱이 파일을 열고 있는 경우입니다.
+→ 파일을 닫은 후 다시 시도하세요.
+
+### "저장 경로가 없음" 오류
+
+지정한 출력 폴더가 존재하지 않습니다.
+→ 유효한 폴더를 선택하세요.
+
+## 📦 배포
+
+### EXE 파일로 배포
+
+```bash
+# Release 빌드
+dotnet publish -c Release -r win-x64 --self-contained
+
+# 생성된 파일:
+# publish/OutlookAutomationApp.exe
+```
+
+### MSI 설치 프로그램 (선택)
+
+Visual Studio의 "Create Installer" 기능을 사용하거나 WiX Toolset을 이용합니다.
+
+## 📝 라이선스
+
+MIT License - 자유롭게 수정 및 배포할 수 있습니다.
+
+## 👨‍💻 기여
+
+Issues 및 Pull Requests를 환영합니다!
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📧 문의
+
+문제가 있거나 제안사항이 있으시면 Issues를 통해 알려주세요.
+
+---
+
+**Made with ❤️ for Windows**
