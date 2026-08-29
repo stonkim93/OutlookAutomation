@@ -171,6 +171,30 @@ namespace OutlookAutomationApp
             TextBlockStatus.Foreground = new System.Windows.Media.SolidColorBrush(
                 (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(color));
         }
+
+        private void Window_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                if (files != null && files.Length > 0)
+                {
+                    string filePath = files[0];
+                    string dir = Path.GetDirectoryName(filePath) ?? string.Empty;
+
+                    _service.SourceFile = filePath;
+                    _service.OutputFolder = dir;
+                    _service.TargetFileName = Path.GetFileName(filePath); // 저장 시 zip 내부의 파일명으로 사용
+
+                    TxtSourceFile.Text = filePath;
+                    TxtOutputFolder.Text = dir;
+                    UpdateStatus($"📁 드롭된 파일 처리 중: {Path.GetFileName(filePath)}");
+
+                    // 자동 실행
+                    BtnExecute_Click(this, new RoutedEventArgs());
+                }
+            }
+        }
     }
 
     // ============================================================
@@ -181,6 +205,7 @@ namespace OutlookAutomationApp
     {
         public string SourceFile { get; set; } = string.Empty;
         public string OutputFolder { get; set; } = string.Empty;
+        public string TargetFileName { get; set; } = string.Empty;
         public Action<string>? OnStatusUpdate { get; set; }
 
         // Outlook COM 관련 객체
@@ -190,60 +215,7 @@ namespace OutlookAutomationApp
         // 파일을 열었던 프로세스 참조 (종료 시 사용)
         private Process? _openedProcess;
 
-        // ─────────────────────────────────────────────────────────
-        // Simple MAPI P/Invoke: 클래식/새 Outlook 모두 지원하는
-        // Windows 기본 메일 API (fallback용)
-        // ─────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// Windows MAPI 구조체: 파일 첨부 정보
-        /// </summary>
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        private struct MapiFileDesc
-        {
-            public uint ulReserved;
-            public uint flFlags;        // 0 = 일반 첨부
-            public uint nPosition;      // 본문 내 위치 (0xFFFFFFFF = 끝)
-            public string lpszPathName; // 파일 실제 경로
-            public string lpszFileName; // 표시될 파일명
-            public IntPtr lpFileType;   // null = 자동 감지
-        }
-
-        /// <summary>
-        /// Windows MAPI 구조체: 메일 메시지 전체 정보
-        /// </summary>
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        private struct MapiMessage
-        {
-            public uint ulReserved;
-            public string lpszSubject;     // 제목
-            public string lpszNoteText;    // 본문
-            public string lpszMessageType;
-            public string lpszDateReceived;
-            public string lpszConversationID;
-            public uint flFlags;
-            public IntPtr lpOriginator;
-            public uint nRecipCount;
-            public IntPtr lpRecips;
-            public uint nFileCount;        // 첨부 파일 수
-            public IntPtr lpFiles;         // MapiFileDesc 배열 포인터
-        }
-
-        // MAPI32.DLL의 MAPISendMail 함수 가져오기
-        // 이 함수는 Windows에 등록된 기본 메일 클라이언트(Outlook 등)를 통해
-        // 메일 작성 창을 표시하며, 클래식/새 Outlook 모두 지원
-        [DllImport("MAPI32.DLL", CharSet = CharSet.Ansi)]
-        private static extern uint MAPISendMail(
-            IntPtr lhSession,           // MAPI 세션 (0 = 기본 세션 사용)
-            IntPtr ulUIParam,           // 부모 창 핸들
-            ref MapiMessage lpMessage,  // 메일 메시지 구조체
-            uint flFlags,               // MAPI_DIALOG(8) | MAPI_LOGON_UI(1)
-            uint ulReserved);           // 항상 0
-
-        // MAPI 반환 코드 상수
-        private const uint MAPI_SUCCESS = 0;
-        private const uint MAPI_DIALOG = 8;    // 작성 창 표시
-        private const uint MAPI_LOGON_UI = 1;  // 로그인 UI 허용
 
         /// <summary>
         /// 자동화 전체 프로세스 실행
@@ -265,71 +237,21 @@ namespace OutlookAutomationApp
                 ReportStatus("⏳ [1/5] 앱이 파일을 여는 중 대기 (2.5초)...");
                 System.Threading.Thread.Sleep(2500);
 
-                // ── 2단계: Outlook 방식 선택 ────────────────────────
-                ReportStatus("🔍 [2/5] Outlook 버전을 확인하고 있습니다...");
-
-                // 클래식 Outlook COM 사용 가능 여부 확인
-                bool classicOutlookAvailable = IsClassicOutlookAvailable();
-
-                if (classicOutlookAvailable)
-                {
-                    // ══ 경로 A: 클래식 Outlook COM 자동화 ══════════════
+                    // ══ 클래식 Outlook COM 자동화 ══════════════
                     ReportStatus("📧 [2/5] 클래식 Outlook COM 자동화를 사용합니다...");
 
                     if (!InitializeOutlook(out string initErr))
                         return (false, initErr, string.Empty, string.Empty, false);
 
-                    ReportStatus("📎 [3/5] 메일 항목을 생성하고 파일을 첨부합니다...");
+                    ReportStatus("📎 [3/4] 메일 항목을 생성하고 파일을 첨부합니다...");
                     if (!CreateMailWithAttachment(out string mailErr))
                         return (false, mailErr, string.Empty, string.Empty, false);
 
-                    ReportStatus("👁 [4/5] Outlook 메일 창을 표시합니다...");
-                    DisplayMail();
-                    System.Threading.Thread.Sleep(3000);
-
-                    ReportStatus("💾 [5/5] 첨부 파일을 저장합니다...");
-                    if (!SaveAttachmentViaCOM(out string saveErr, out savedFilePath))
+                    ReportStatus("💾 [4/4] 첨부 파일 메모리를 추출하여 바로 ZIP으로 압축합니다...");
+                    if (!SaveAttachmentToZip(out string saveErr, out zipFilePath))
                         return (false, saveErr, string.Empty, string.Empty, false);
 
-                    // ── ZIP 압축 ────────────────────────────────────
-                    ReportStatus("📦 [+] 저장된 파일을 ZIP으로 압축합니다...");
-                    CompressToZip(savedFilePath, out zipFilePath);
-
-                    return (true, string.Empty, savedFilePath, zipFilePath, false);
-                }
-                else
-                {
-                    // ══ 경로 B: 폴백 - 파일 직접 복사 ════════════════
-                    // 새 Outlook(olk.exe)은 COM을 지원하지 않으므로
-                    // Simple MAPI로 메일 창을 열어 사용자에게 표시한 뒤
-                    // 파일을 직접 복사하여 동일한 결과를 달성합니다.
-
-                    string outlookKind = DetectOutlookKind();
-                    ReportStatus($"⚠️ [2/5] {outlookKind} - 직접 복사 방식으로 전환합니다...");
-
-                    // MAPI로 메일 작성 창 열기 시도 (표시용, 사용자 확인)
-                    ReportStatus("📧 [3/5] Simple MAPI로 메일 창을 표시합니다...");
-                    bool mapiShown = TryShowMailViaMAPI();
-
-                    if (!mapiShown)
-                    {
-                        ReportStatus("ℹ️ [3/5] MAPI 창 표시 건너뜀 - 파일 직접 복사 진행...");
-                    }
-
-                    // 잠시 대기 (메일 창이 표시된 경우 사용자 확인 시간)
-                    System.Threading.Thread.Sleep(1500);
-
-                    // 파일을 출력 폴더에 직접 복사
-                    ReportStatus("💾 [5/5] 파일을 출력 폴더에 복사합니다...");
-                    if (!CopyFileDirect(out string copyErr, out savedFilePath))
-                        return (false, copyErr, string.Empty, string.Empty, true);
-
-                    // ── ZIP 압축 ────────────────────────────────────
-                    ReportStatus("📦 [+] 저장된 파일을 ZIP으로 압축합니다...");
-                    CompressToZip(savedFilePath, out zipFilePath);
-
-                    return (true, string.Empty, savedFilePath, zipFilePath, true);
-                }
+                    return (true, string.Empty, string.Empty, zipFilePath, false);
             }
             catch (Exception ex)
             {
@@ -344,187 +266,66 @@ namespace OutlookAutomationApp
             }
         }
 
-        /// <summary>
-        /// 클래식 Outlook(OUTLOOK.EXE)의 COM 자동화 사용 가능 여부 확인
-        /// Office 2007, 2010, 2013, 2016, 2019, 365 Classic 모두 지원
-        /// 새 Outlook (olk.exe / New Outlook)은 COM ProgID를 등록하지 않으므로 false 반환
-        /// </summary>
-        private bool IsClassicOutlookAvailable()
-        {
-            try
-            {
-                Type? outlookType = Type.GetTypeFromProgID("Outlook.Application");
-                return outlookType != null;
-            }
-            catch
-            {
-                return false;
-            }
-        }
+
 
         /// <summary>
-        /// 설치된 Outlook 종류를 문자열로 반환 (로그/상태 표시용)
+        /// 첨부파일 데이터를 메모리에서 추출하여 직접 ZIP 파일로 압축 저장합니다.
+        /// (Fasoo DRM SaveAs 훅 우회)
         /// </summary>
-        private string DetectOutlookKind()
+        private bool SaveAttachmentToZip(out string error, out string zipFilePath)
         {
-            // 새 Outlook (Windows 11 기본 앱: olk.exe)이 실행 중인지 확인
-            var newOutlookProcs = Process.GetProcessesByName("olk");
-            if (newOutlookProcs.Length > 0)
-                return "새 Outlook (New Outlook/olk.exe) 감지됨";
-
-            // 클래식 Outlook 프로세스가 실행 중인지 확인
-            var classicProcs = Process.GetProcessesByName("OUTLOOK");
-            if (classicProcs.Length > 0)
-                return "Outlook 프로세스 실행 중이나 COM 연결 불가";
-
-            return "Outlook을 찾을 수 없음";
-        }
-
-        // ─────────────────────────────────────────────────────────
-        // Simple MAPI를 이용해 메일 작성 창 표시 (경로 B에서 사용)
-        // 새 Outlook 포함, Windows 기본 메일 클라이언트 모두 지원
-        // ─────────────────────────────────────────────────────────
-        private bool TryShowMailViaMAPI()
-        {
-            try
-            {
-                string fileName = Path.GetFileName(SourceFile);
-
-                // 첨부 파일 구조체 설정
-                MapiFileDesc fileDesc = new MapiFileDesc
-                {
-                    ulReserved = 0,
-                    flFlags = 0,
-                    nPosition = 0xFFFFFFFF,   // 본문 끝에 첨부
-                    lpszPathName = SourceFile, // 실제 파일 경로
-                    lpszFileName = fileName,   // 표시될 파일명
-                    lpFileType = IntPtr.Zero
-                };
-
-                // 비관리 메모리에 MapiFileDesc 구조체 할당
-                IntPtr filePtr = Marshal.AllocHGlobal(Marshal.SizeOf(fileDesc));
-                Marshal.StructureToPtr(fileDesc, filePtr, false);
-
-                // 메일 메시지 구조체 설정
-                MapiMessage message = new MapiMessage
-                {
-                    ulReserved = 0,
-                    lpszSubject = $"첨부: {fileName}",
-                    lpszNoteText = $"자동화 프로그램이 생성한 임시 메일입니다.\n\n파일: {SourceFile}",
-                    lpszMessageType = string.Empty,
-                    lpszDateReceived = string.Empty,
-                    lpszConversationID = string.Empty,
-                    flFlags = 0,
-                    lpOriginator = IntPtr.Zero,
-                    nRecipCount = 0,
-                    lpRecips = IntPtr.Zero,
-                    nFileCount = 1,
-                    lpFiles = filePtr
-                };
-
-                // MAPI_DIALOG | MAPI_LOGON_UI: 메일 작성 창 표시 + 로그인 허용
-                uint result = MAPISendMail(
-                    IntPtr.Zero, IntPtr.Zero,
-                    ref message,
-                    MAPI_DIALOG | MAPI_LOGON_UI,
-                    0);
-
-                // 비관리 메모리 해제
-                Marshal.FreeHGlobal(filePtr);
-
-                // MAPI_SUCCESS(0) 또는 사용자가 취소(1)해도 "표시 시도"는 성공으로 처리
-                return result == MAPI_SUCCESS || result == 1;
-            }
-            catch
-            {
-                // MAPI 실패는 치명적이지 않음 - 파일 직접 복사로 계속 진행
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 소스 파일을 출력 폴더에 직접 복사 (경로 B 폴백)
-        /// Outlook attachment.SaveAsFile()과 동일한 바이트 수준 결과 생성
-        /// </summary>
-        /// <summary>
-        /// 저장된 파일을 같은 출력 폴더 안에 ZIP으로 압축
-        /// 파일명 예: Abaqus.pptx → Abaqus_20240828_143052.zip
-        /// ZIP 생성 실패는 치명적이지 않으므로 예외를 삼켜서 계속 진행
-        /// </summary>
-        private void CompressToZip(string sourceFilePath, out string zipFilePath)
-        {
+            error = string.Empty;
             zipFilePath = string.Empty;
             try
             {
-                if (!File.Exists(sourceFilePath))
-                    return;
+                if (_mailItem == null || _mailItem!.Attachments.Count == 0)
+                {
+                    error = "저장할 첨부 파일이 존재하지 않습니다.";
+                    return false;
+                }
 
-                // 원본 파일명 그대로 사용 (확장자만 .zip으로 교체)
-                // 예: Abaqus.pptx → Abaqus.zip
-                string nameWithoutExt = Path.GetFileNameWithoutExtension(sourceFilePath);
+                // COM 인덱스는 1부터 시작
+                dynamic attachment = _mailItem!.Attachments[1];
+                string targetName = !string.IsNullOrEmpty(TargetFileName) ? TargetFileName : (string)attachment.FileName;
+                
+                string nameWithoutExt = Path.GetFileNameWithoutExtension(targetName);
                 string zipPath = Path.Combine(OutputFolder, $"{nameWithoutExt}.zip");
 
                 // 동일 이름의 ZIP이 이미 존재하면 삭제 후 새로 생성
                 if (File.Exists(zipPath))
                     File.Delete(zipPath);
 
-                // ZipArchive: 새 ZIP 파일 생성
+                // [DRM 우회] SaveAsFile() 대신 PropertyAccessor로 메모리의 바이트 데이터를 직접 읽어옵니다.
+                const string PR_ATTACH_DATA_BIN = "http://schemas.microsoft.com/mapi/proptag/0x37010102";
+                byte[] attachmentData = attachment.PropertyAccessor.GetProperty(PR_ATTACH_DATA_BIN);
+                
+                // 직접 ZIP 아카이브를 생성하고 메모리 스트림을 통해 바이트 기록
                 using (ZipArchive zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
                 {
-                    // 원본 파일명 유지하면서 ZIP 내부에 추가
-                    zip.CreateEntryFromFile(
-                        sourceFilePath,
-                        Path.GetFileName(sourceFilePath),
-                        CompressionLevel.Optimal);  // 최적 압축률
+                    var entry = zip.CreateEntry(targetName, CompressionLevel.Optimal);
+                    using (var entryStream = entry.Open())
+                    {
+                        entryStream.Write(attachmentData, 0, attachmentData.Length);
+                    }
                 }
 
                 zipFilePath = zipPath;
-                ReportStatus($"📦 ZIP 압축 완료: {Path.GetFileName(zipPath)}");
-            }
-            catch (Exception ex)
-            {
-                // ZIP 실패는 전체 작업을 중단시키지 않음 (경고만 표시)
-                ReportStatus($"⚠️ ZIP 압축 실패 (파일 저장은 완료됨): {ex.Message}");
-            }
-        }
-
-        private bool CopyFileDirect(out string error, out string savedFilePath)
-        {
-            error = string.Empty;
-            savedFilePath = string.Empty;
-            try
-            {
-                string fileName = Path.GetFileName(SourceFile);
-                string outputPath = Path.Combine(OutputFolder, fileName);
-
-                // 동일 파일명 존재 시 타임스탬프 기반 고유 이름 생성
-                if (File.Exists(outputPath))
-                {
-                    string nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
-                    string ext = Path.GetExtension(fileName);
-                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    outputPath = Path.Combine(OutputFolder, $"{nameWithoutExt}_{timestamp}{ext}");
-                }
-
-                // 파일 복사 실행
-                File.Copy(SourceFile, outputPath, overwrite: false);
-                savedFilePath = outputPath;
                 return true;
             }
-            catch (UnauthorizedAccessException)
+            catch (COMException comEx)
             {
-                error = $"출력 폴더에 쓰기 권한이 없습니다.\n폴더: {OutputFolder}";
+                error = $"첨부 파일 메모리 추출 실패 (0x{comEx.HResult:X8}): {comEx.Message}";
                 return false;
             }
             catch (Exception ex)
             {
-                error = $"파일 복사 실패: {ex.Message}";
+                error = $"파일 압축 저장 예외: {ex.Message}";
                 return false;
             }
         }
 
         // ─────────────────────────────────────────────────────────
-        // 이하 경로 A (클래식 Outlook COM) 전용 메서드들
+        // 이하 클래식 Outlook COM 전용 메서드들
         // ─────────────────────────────────────────────────────────
 
         private void ReportStatus(string message) => OnStatusUpdate?.Invoke(message);
@@ -627,47 +428,7 @@ namespace OutlookAutomationApp
             try { _mailItem?.Display(false); } catch { }
         }
 
-        private bool SaveAttachmentViaCOM(out string error, out string savedFilePath)
-        {
-            error = string.Empty;
-            savedFilePath = string.Empty;
-            try
-            {
-                if (_mailItem == null || _mailItem!.Attachments.Count == 0)
-                {
-                    error = "저장할 첨부 파일이 존재하지 않습니다.";
-                    return false;
-                }
 
-                // COM 인덱스는 1부터 시작
-                dynamic attachment = _mailItem!.Attachments[1];
-                string attachmentName = (string)attachment.FileName;
-                string outputPath = Path.Combine(OutputFolder, attachmentName);
-
-                // 동일 파일명 존재 시 타임스탬프 기반 고유 이름 생성
-                if (File.Exists(outputPath))
-                {
-                    string nameWithoutExt = Path.GetFileNameWithoutExtension(attachmentName);
-                    string ext = Path.GetExtension(attachmentName);
-                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    outputPath = Path.Combine(OutputFolder, $"{nameWithoutExt}_{timestamp}{ext}");
-                }
-
-                attachment.SaveAsFile(outputPath);
-                savedFilePath = outputPath;
-                return true;
-            }
-            catch (COMException comEx)
-            {
-                error = $"첨부 파일 저장 실패 (0x{comEx.HResult:X8}): {comEx.Message}";
-                return false;
-            }
-            catch (Exception ex)
-            {
-                error = $"파일 저장 예외: {ex.Message}";
-                return false;
-            }
-        }
 
         /// <summary>
         /// 자동화 완료/실패 후 모든 리소스 안전하게 정리
